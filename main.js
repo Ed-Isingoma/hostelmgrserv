@@ -25,6 +25,10 @@ app.post('/call', async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  return res.json({ msg: 'Server is running'})
+})
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

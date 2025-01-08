@@ -104,7 +104,7 @@ async function initDb() {
 }
 
 function executeQuery(quer, par = []) {
-  const { query, params} = prepareQuery(quer, par)
+  let { query, params } = prepareQuery(quer, par)
 
   console.log('Going to execute query:', query);
   console.log('Parameters are:', params);
@@ -179,7 +179,7 @@ async function initializeTrigger() {
   }
 }
 
-// initializeTrigger()
+initializeTrigger()
 
 function login(username, password) {
   const query = `SELECT * FROM Account WHERE username = ? AND password = ? AND approved = 1 AND deleted = 0`;
