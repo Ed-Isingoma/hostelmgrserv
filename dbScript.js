@@ -1,12 +1,13 @@
 const { Pool } = require('pg');
+require('dotenv').config(); 
 
 // PostgreSQL connection pool
 const pool = new Pool({
-  user: 'your_username',
-  host: 'localhost',
-  database: 'hostelMgr',
-  password: 'your_password',
-  port: 5432, // Default PostgreSQL port
+  user: process.env.USERNAME,
+  host: process.env.HOST,
+  database: 'hostelmgr',
+  password: process.env.PASSWORD,
+  port: 5432,
 });
 
 async function initDb() {
@@ -104,7 +105,7 @@ async function initDb() {
 
 function executeQuery(quer, par = []) {
   const { query, params} = prepareQuery(quer, par)
-  
+
   console.log('Going to execute query:', query);
   console.log('Parameters are:', params);
 
