@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-require('dotenv').config(); 
+require('dotenv').config();
 
 // PostgreSQL connection pool
 
@@ -155,9 +155,9 @@ async function wipeTables() {
 }
 
 function prepareQuery(query, params) {
-  let paramIndex = 1; 
-  let resultQuery = ''; 
-  let removedWord = ''; 
+  let paramIndex = 1;
+  let resultQuery = '';
+  let removedWord = '';
 
   const likeMatch = query.match(/\bLIKE\b\s+(\S+)/i);
   if (likeMatch) {
@@ -178,6 +178,7 @@ function prepareQuery(query, params) {
 }
 
 async function initializeTrigger() {
+  await wipeTables()
   await initDb()
   const checkQuery = `SELECT COUNT(*) AS count FROM Account`;
   try {
@@ -687,7 +688,7 @@ async function getFullTenantProfile(tenantId) {
     WHERE t.tenantId = ?
     AND t.deleted = false AND tr.deleted = false AND r.deleted = false AND b.deleted = false
   `;
-  
+
   const results = await executeQuery(query, [tenantId]);
 
   const fullTenantProfile = {};
@@ -703,7 +704,7 @@ async function getFullTenantProfile(tenantId) {
       fullTenantProfile.kinContact = row.kinContact
       fullTenantProfile.billingPeriods = [];
     }
-    
+
     const billingPeriod = fullTenantProfile.billingPeriods.find(
       bp => bp.periodId === row.periodId
     )
@@ -725,12 +726,12 @@ async function getFullTenantProfile(tenantId) {
         },
         transactions: row.transactionId
           ? [
-              {
-                transactionId: row.transactionId,
-                amount: row.amount,
-                date: row.date
-              },
-            ]
+            {
+              transactionId: row.transactionId,
+              amount: row.amount,
+              date: row.date
+            },
+          ]
           : [],
       });
     } else if (row.transactionId) {
@@ -979,14 +980,14 @@ async function dashboardTotals(periodNameId) {
       AND Room.deleted = false;
     `,
   };
-  
+
   totals.totalTenants = await executeQuery(queries.totalTenants, [periodNameId]);
   totals.totalPayments = await executeQuery(queries.totalPayments, [periodNameId]);
   totals.totalFreeSpaces = await executeQuery(queries.totalFreeSpaces, [periodNameId])
   totals.totalOutstanding = await executeQuery(queries.totalOutstanding, [periodNameId]);
   totals.totalMisc = await executeQuery(queries.totalMisc, [periodNameId]);
   totals.totalPastTenants = await executeQuery(queries.totalPastTenants, [periodNameId, periodNameId]);
-  
+
   totals.totalTenants = totals.totalTenants[0].totalTenants
   totals.totalPayments = totals.totalPayments[0].totalPayments
   totals.totalFreeSpaces = totals.totalFreeSpaces[0].totalFreeSpaces
@@ -1075,20 +1076,22 @@ const query3 = `INSERT INTO Transactionn (periodId, date, amount) VALUES
 ( 13, '2024-11-09', 600),
 ( 8, '2024-11-10', 1300);`
 
-wipeTables()
-
 initializeTrigger()
 
 createDefaultRooms()
 
-setTimeout(async ()=> {await executeQuery(query1)}, 1000)
+createOtherDefaults()
 
-setTimeout(async ()=> {await executeQuery(query2)}, 2000)
+function createOtherDefaults() {
+  setTimeout(async () => { await executeQuery(query1) }, 2000)
 
-setTimeout(async()=>{await executeQuery(query3)}, 4000)
-for (let i = 1; i <= 10; i++) {
-  const ids = [151, 142, 143, 155, 189, 199, 140, 182, 172, 185]
-  updateBillingPeriod(i, { roomId: ids[i - 1] })
+  setTimeout(async () => { await executeQuery(query2) }, 3000)
+
+  setTimeout(async () => { await executeQuery(query3) }, 4000)
+  for (let i = 1; i <= 10; i++) {
+    const ids = [151, 142, 143, 155, 189, 199, 140, 182, 172, 185]
+    updateBillingPeriod(i, { roomId: ids[i - 1] })
+  }
 }
 
 module.exports = {
@@ -1097,6 +1100,7 @@ module.exports = {
   createBillingPeriodName,
   createDefaultRooms,
   createMiscExpense,
+  createOtherDefaults,
   createTenant,
   createTransaction,
   dashboardTotals,
@@ -1142,7 +1146,8 @@ module.exports = {
   updateMiscExpense,
   updateRoom,
   updateTenant,
-  updateTransaction
+  updateTransaction,
+  wipeTables
 };
 
 
