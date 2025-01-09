@@ -121,7 +121,7 @@ function executeQuery(quer, par = []) {
       if (result.rows.length > 0) {
         console.log('The results are:', result.rows);
       } else {
-        console.log('No rows returned:', result);
+        console.log('No rows returned: row count is', result.rowCount);
       }
       return result.rows
     })
@@ -179,7 +179,7 @@ async function initializeTrigger() {
   }
 }
 
-initializeTrigger()
+// initializeTrigger()
 
 function login(username, password) {
   const query = `SELECT * FROM Account WHERE username = ? AND password = ? AND approved = 1 AND deleted = 0`;
@@ -1059,17 +1059,17 @@ const query3 = `INSERT INTO Transactionn (periodId, date, amount, deleted) VALUE
 ( 8, '2024-11-10', 1300, 0);`;
 
 
-createDefaultRooms()
+// createDefaultRooms()
 
-setTimeout(async ()=> {await executeQuery(query1)}, 1000)
+// setTimeout(async ()=> {await executeQuery(query1)}, 1000)
 
-setTimeout(async ()=> {await executeQuery(query2)}, 2000)
+// setTimeout(async ()=> {await executeQuery(query2)}, 2000)
 
-setTimeout(async()=>{await executeQuery(query3)}, 4000)
-for (let i = 1; i <= 10; i++) {
-  const ids = [151, 142, 143, 155, 189, 199, 140, 182, 172, 185]
-  updateBillingPeriod(i, { roomId: ids[i - 1] })
-}
+// setTimeout(async()=>{await executeQuery(query3)}, 4000)
+// for (let i = 1; i <= 10; i++) {
+//   const ids = [151, 142, 143, 155, 189, 199, 140, 182, 172, 185]
+//   updateBillingPeriod(i, { roomId: ids[i - 1] })
+// }
 
 module.exports = {
   createAccount,

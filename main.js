@@ -1,15 +1,36 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-
 const dbScript = require('./dbScript');
-
 const app = express();
 const port = 3000;
 
-app.use(bodyParser.json());
+app.use(express.json())
+
+app.use((req, res, next) => {
+	res.set('Content-Security-Policy', "default-src 'self' https://hostelmgr.onrender.com; script-src 'self' 'unsafe-inline';")
+	res.set('Cross-Origin-Opener-Policy', "cross-origin")
+	res.set('Access-Control-Allow-Origin', "*")
+	res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+	res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+	next()
+})
+
+app.options('*', (req, res) => {
+	res.set('Access-Control-Allow-Origin', "*")
+	res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+	res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+	res.sendStatus(200)
+})
+
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'Hello Client'})
+})
+
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Endpoint not found' });
+});
 
 app.post('/call', async (req, res) => {
-  const { funcName, params } = req.body;
+  const { funcName, params = [] } = req.body;
 
   try {
     if (typeof dbScript[funcName] === 'function') {
@@ -24,10 +45,6 @@ app.post('/call', async (req, res) => {
     return res.json({ success: false, error: error.message });
   }
 });
-
-app.get('/', (req, res) => {
-  return res.json({ msg: 'Server is running'})
-})
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
