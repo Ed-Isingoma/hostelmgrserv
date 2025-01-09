@@ -178,7 +178,6 @@ function prepareQuery(query, params) {
 }
 
 async function initializeTrigger() {
-  await wipeTables()
   await initDb()
   const checkQuery = `SELECT COUNT(*) AS count FROM Account`;
   try {
@@ -1076,11 +1075,11 @@ const query3 = `INSERT INTO Transactionn (periodId, date, amount) VALUES
 ( 13, '2024-11-09', 600),
 ( 8, '2024-11-10', 1300);`
 
-initializeTrigger()
-
-createDefaultRooms()
-
-createOtherDefaults()
+// to reset db
+// wipeTables()
+// initializeTrigger()
+// createDefaultRooms()
+// createOtherDefaults()
 
 function createOtherDefaults() {
   setTimeout(async () => { await executeQuery(query1) }, 2000)
@@ -1135,6 +1134,7 @@ module.exports = {
   getTransactionsByBillingPeriodName,
   getTransactionsByPeriodNameIdWithMetaData,
   getUnapprovedAccounts,
+  initializeTrigger,
   login,
   moveMonthlyBillingPeriods,
   searchTenantByName,
