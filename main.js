@@ -25,10 +25,6 @@ app.get('/', (req, res) => {
   res.json({ success: true, message: 'Hello Client'})
 })
 
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Endpoint not found' });
-});
-
 app.post('/call', async (req, res) => {
   const { funcName, params = [] } = req.body;
 
@@ -44,6 +40,10 @@ app.post('/call', async (req, res) => {
     console.log('variables:', params);
     return res.json({ success: false, error: error.message });
   }
+});
+
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Endpoint not found' });
 });
 
 app.listen(port, () => {
