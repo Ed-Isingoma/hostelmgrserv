@@ -132,8 +132,26 @@ function executeQuery(quer, par = []) {
     });
 }
 
-function executeSelect(query, params = []) {
-  return executeQuery(query, params);
+async function wipeTables() {
+  const dropQueries = [
+    `DROP TABLE IF EXISTS MiscExpense CASCADE;`,
+    `DROP TABLE IF EXISTS Transactionn CASCADE;`,
+    `DROP TABLE IF EXISTS BillingPeriod CASCADE;`,
+    `DROP TABLE IF EXISTS BillingPeriodName CASCADE;`,
+    `DROP TABLE IF EXISTS Room CASCADE;`,
+    `DROP TABLE IF EXISTS Tenant CASCADE;`,
+    `DROP TABLE IF EXISTS Account CASCADE;`
+  ];
+
+  try {
+    for (const query of dropQueries) {
+      await executeQuery(query);
+      console.log('Table wiped successfully.');
+    }
+    console.log('All tables wiped successfully.');
+  } catch (error) {
+    console.error('Error wiping tables:', error);
+  }
 }
 
 function prepareQuery(query, params) {
@@ -163,11 +181,11 @@ async function initializeTrigger() {
   await initDb()
   const checkQuery = `SELECT COUNT(*) AS count FROM Account`;
   try {
-    const rows = await executeSelect(checkQuery);
+    const rows = await executeQuery(checkQuery);
     const isEmpty = rows[0].count === 0;
     if (isEmpty) {
       const makeAdmin = `INSERT INTO Account (username, password, role, approved) VALUES (?, ?, ?, ?)`
-      const params = ['admin', '2024admin', 'admin', 1]
+      const params = ['admin', '2024admin', 'admin', true]
       const adminId = await executeQuery(makeAdmin, params);
       console.log(`Admin account added with ID ${adminId}`);
       await insertDefaultBillingPeriodNames();
@@ -180,12 +198,10 @@ async function initializeTrigger() {
   }
 }
 
-initializeTrigger()
-
 function login(username, password) {
   const query = `SELECT * FROM Account WHERE username = ? AND password = ? AND approved = true AND deleted = false`;
   const params = [username, password];
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 async function createAccount(username, password, role = 'custodian') {
@@ -416,7 +432,7 @@ async function getPotentialTenantRoomsByGender(gender, levelNumber, periodNameId
 `;
 
   const params = [periodNameId, levelNumber, gender];
-  return await executeSelect(query, params)
+  return await executeQuery(query, params)
 
 }
 
@@ -435,7 +451,7 @@ function getMiscExpensesByDate(startDate, endDate = null) {
     query += ' AND date <= ?';
     params.push(endDate);
   }
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 function getMiscExpensesForBillingPeriodName(periodNameId) {
@@ -449,49 +465,49 @@ function getMiscExpensesForBillingPeriodName(periodNameId) {
   `;
   const params = [periodNameId];
 
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 function getMostRecentTransaction(periodId) {
   const query = `SELECT * FROM Transactionn WHERE periodId = ? AND deleted = false ORDER BY date DESC LIMIT 1`;
-  return executeSelect(query, [periodId]);
+  return executeQuery(query, [periodId]);
 }
 
 function getTransactions(periodId) {
   const query = `SELECT * FROM Transactionn WHERE periodId = ? AND deleted = false ORDER BY date DESC`;
-  return executeSelect(query, [periodId]);
+  return executeQuery(query, [periodId]);
 }
 
 function getTransactionsByBillingPeriodName(periodNameId) {
   let query = 'SELECT Transactionn.* FROM Transactionn JOIN BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId WHERE BillingPeriod.periodNameId = ? AND Transactionn.deleted = false AND BillingPeriod.deleted = false';
 
   const params = [periodNameId];
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 function getAccountsDeadAndLiving() {
   const query = `SELECT * FROM Account WHERE deleted = false`;
-  return executeSelect(query);
+  return executeQuery(query);
 }
 
 function getUnapprovedAccounts() {// seems to be useless
   const query = `SELECT * FROM Account WHERE approved = false`;
-  return executeSelect(query);
+  return executeQuery(query);
 }
 
 function getLevels() {
   const query = `SELECT DISTINCT levelNumber FROM Room WHERE deleted = false`;
-  return executeSelect(query);
+  return executeQuery(query);
 }
 
 function getAllRooms() {
   const query = `SELECT * FROM Room WHERE deleted = false`;
-  return executeSelect(query);
+  return executeQuery(query);
 }
 
 function getBillingPeriodNames() {
   const query = `SELECT * FROM BillingPeriodName WHERE deleted = false`
-  return executeSelect(query);
+  return executeQuery(query);
 }
 
 async function getRoomsAndOccupancyByLevel(levelNumber, periodNameId) {
@@ -512,7 +528,7 @@ async function getRoomsAndOccupancyByLevel(levelNumber, periodNameId) {
     GROUP BY Room.roomId
   `;
   const params = [periodNameId, levelNumber];
-  return executeSelect(query, params)
+  return executeQuery(query, params)
 }
 
 function getTenantsByLevel(levelNumber, periodNameId) {
@@ -527,7 +543,7 @@ function getTenantsByLevel(levelNumber, periodNameId) {
       AND BillingPeriod.deleted = false
       AND Room.deleted = false
   `;
-  return executeSelect(query, [periodNameId, levelNumber]);
+  return executeQuery(query, [periodNameId, levelNumber]);
 }
 
 async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
@@ -545,7 +561,7 @@ async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
     GROUP BY Tenant.tenantId
   `;
   const params = [roomId, periodNameId];
-  return await executeSelect(query, params);
+  return await executeQuery(query, params);
 }
 
 function getAllTenants(periodNameId) {
@@ -555,7 +571,7 @@ function getAllTenants(periodNameId) {
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     WHERE BillingPeriod.periodNameId = ? AND Tenant.deleted = false AND BillingPeriod.deleted = false
   `;
-  return executeSelect(query, [periodNameId]);
+  return executeQuery(query, [periodNameId]);
 }
 
 function getAllTenantsNameAndId(periodNameId) {
@@ -565,7 +581,7 @@ function getAllTenantsNameAndId(periodNameId) {
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     WHERE BillingPeriod.periodNameId = ? AND Tenant.deleted = false AND BillingPeriod.deleted = false
   `;
-  return executeSelect(query, [periodNameId]);
+  return executeQuery(query, [periodNameId]);
 }
 
 function getTenantsByBillingPeriodName(periodNameId) {
@@ -577,22 +593,22 @@ function getTenantsByBillingPeriodName(periodNameId) {
       AND Tenant.deleted = false 
       AND BillingPeriod.deleted = false
   `;
-  return executeSelect(query, [periodNameId]);
+  return executeQuery(query, [periodNameId]);
 }
 
 function getMiscExpenseById(miscExpenseId) {
   const query = `SELECT * FROM MiscExpense WHERE miscExpenseId = ? AND deleted = false`;
-  return executeSelect(query, [miscExpenseId]);
+  return executeQuery(query, [miscExpenseId]);
 }
 
 function getTransactionById(transactionId) {
   const query = `SELECT * FROM Transactionn WHERE transactionId = ? AND deleted = false`;
-  return executeSelect(query, [transactionId]);
+  return executeQuery(query, [transactionId]);
 }
 
 function getAccountById(accountId) {
   const query = `SELECT * FROM Account WHERE accountId = ? AND deleted = false`;
-  return executeSelect(query, [accountId]);
+  return executeQuery(query, [accountId]);
 }
 
 function getMonthliesFor(tenantId) {
@@ -603,12 +619,12 @@ function getMonthliesFor(tenantId) {
   AND tenantId = ?
   AND BillingPeriod.deleted = false`
 
-  return executeSelect(query, [tenantId])
+  return executeQuery(query, [tenantId])
 }
 
 function getBillingPeriodById(periodId) {
   const query = `SELECT * FROM BillingPeriod WHERE periodId = ? AND deleted = false`;
-  return executeSelect(query, [periodId]);
+  return executeQuery(query, [periodId]);
 }
 
 function getBillingPeriodBeingPaidFor(tenantId, periodNameId) {
@@ -618,7 +634,7 @@ function getBillingPeriodBeingPaidFor(tenantId, periodNameId) {
   AND periodNameId = ?
   AND ownEndDate IS NULL
   AND BillingPeriod.deleted = false `;
-  return executeSelect(query, [tenantId, periodNameId]);
+  return executeQuery(query, [tenantId, periodNameId]);
 }
 
 function getOnlyTenantsWithOwingAmt(periodNameId) {
@@ -637,7 +653,7 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
     HAVING owingAmount > 0
   `;
   const params = [periodNameId];
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 function getTenantsPlusOutstandingBalanceAll(periodNameId) {
@@ -657,7 +673,7 @@ function getTenantsPlusOutstandingBalanceAll(periodNameId) {
   `;
 
   const params = [periodNameId];
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 async function getFullTenantProfile(tenantId) {
@@ -672,7 +688,7 @@ async function getFullTenantProfile(tenantId) {
     AND t.deleted = false AND tr.deleted = false AND r.deleted = false AND b.deleted = false
   `;
   
-  const results = await executeSelect(query, [tenantId]);
+  const results = await executeQuery(query, [tenantId]);
 
   const fullTenantProfile = {};
   results.forEach(row => {
@@ -742,7 +758,7 @@ function searchTenantByName(name) {
     JOIN BillingPeriodName bpn ON bp.periodNameId = bpn.periodNameId
     WHERE t.name LIKE ? AND t.deleted = false AND bp.deleted = false AND r.deleted = false
   `;
-  return executeSelect(query, [`%${name}%`]);
+  return executeQuery(query, [`%${name}%`]);
 }
 
 function searchTenantNameAndId(name) {
@@ -753,7 +769,7 @@ function searchTenantNameAndId(name) {
     FROM Tenant t
     WHERE t.name LIKE ? AND t.deleted = false
   `;
-  return executeSelect(query, [`%${name}%`]);
+  return executeQuery(query, [`%${name}%`]);
 }
 
 function searchRoomByNamePart(name) {
@@ -764,7 +780,7 @@ function searchRoomByNamePart(name) {
     FROM Room r
     WHERE r.roomName LIKE ? AND r.deleted = false
   `;
-  return executeSelect(query, [`%${name}%`]);
+  return executeQuery(query, [`%${name}%`]);
 }
 
 function getTenantsOfBillingPeriodXButNotY(periodNameId1, periodNameId2) {
@@ -782,7 +798,7 @@ function getTenantsOfBillingPeriodXButNotY(periodNameId1, periodNameId2) {
       )
   `;
   const params = [periodNameId1, periodNameId2];
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 function getOlderTenantsThan(periodNameId) {
@@ -818,7 +834,7 @@ function getOlderTenantsThan(periodNameId) {
   `
 
   const params = [periodNameId, periodNameId];
-  return executeSelect(query, params);
+  return executeQuery(query, params);
 }
 
 async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
@@ -848,7 +864,7 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
   `;
 
   const params = [periodNameId];
-  return await executeSelect(query, params);
+  return await executeQuery(query, params);
 }
 
 async function dashboardTotals(periodNameId) {
@@ -964,12 +980,12 @@ async function dashboardTotals(periodNameId) {
     `,
   };
   
-  totals.totalTenants = await executeSelect(queries.totalTenants, [periodNameId]);
-  totals.totalPayments = await executeSelect(queries.totalPayments, [periodNameId]);
-  totals.totalFreeSpaces = await executeSelect(queries.totalFreeSpaces, [periodNameId])
-  totals.totalOutstanding = await executeSelect(queries.totalOutstanding, [periodNameId]);
-  totals.totalMisc = await executeSelect(queries.totalMisc, [periodNameId]);
-  totals.totalPastTenants = await executeSelect(queries.totalPastTenants, [periodNameId, periodNameId]);
+  totals.totalTenants = await executeQuery(queries.totalTenants, [periodNameId]);
+  totals.totalPayments = await executeQuery(queries.totalPayments, [periodNameId]);
+  totals.totalFreeSpaces = await executeQuery(queries.totalFreeSpaces, [periodNameId])
+  totals.totalOutstanding = await executeQuery(queries.totalOutstanding, [periodNameId]);
+  totals.totalMisc = await executeQuery(queries.totalMisc, [periodNameId]);
+  totals.totalPastTenants = await executeQuery(queries.totalPastTenants, [periodNameId, periodNameId]);
   
   totals.totalTenants = totals.totalTenants[0].totalTenants
   totals.totalPayments = totals.totalPayments[0].totalPayments
@@ -1013,20 +1029,20 @@ async function moveMonthlyBillingPeriods(periodNameId) {
   return executeQuery(query, [periodNameId, today])
 }
 
-const query1 = `INSERT INTO Tenant (tenantId, name, gender, age, course, ownContact, nextOfKin, kinContact, deleted) VALUES
-(1, 'Alice Johnson', 'female', 22, 'Engineering', '1234567001', 'John Johnson', '1234567101', 0),
-(2, 'Bob Smith', 'male', 24, 'Physics', '1234567002', 'Emma Smith', '1234567102', 0),
-(3, 'Carol Brown', 'female', 23, 'Mathematics', '1234567003', 'James Brown', '1234567103', 0),
-(4, 'David Wilson', 'male', 21, 'Chemistry', '1234567004', 'Lily Wilson', '1234567104', 0),
-(5, 'Eva Davis', 'female', 22, 'Biology', '1234567005', 'Michael Davis', '1234567105', 0),
-(6, 'Frank Miller', 'male', 25, 'Architecture', '1234567006', 'Sophia Miller', '1234567106', 0),
-(7, 'Grace Moore', 'female', 20, 'Computer Science', '1234567007', 'Olivia Moore', '1234567107', 0),
-(8, 'Henry Taylor', 'male', 23, 'Business', '1234567008', 'Daniel Taylor', '1234567108', 0),
-(9, 'Ivy Anderson', 'female', 21, 'Art', '1234567009', 'Ella Anderson', '1234567109', 0),
-(10, 'Jack Thomas', 'male', 22, 'History', '1234567010', 'Liam Thomas', '1234567110', 0);
-(11, 'Jane Dyre', 'female', 23, 'Geography', '32322323', 'Neeson', '232323232', 0)
-(12, 'Karl Dyre', 'female', 20, 'CSC', '32322323', 'Karli', '232323232', 0)
-(13, 'Namart Earhe', 'male', 23, 'Theology', '11122323', 'Hope', '237780232', 0)`;
+const query1 = `INSERT INTO Tenant (tenantId, name, gender, age, course, ownContact, nextOfKin, kinContact) VALUES
+(1, 'Alice Johnson', 'female', 22, 'Engineering', '1234567001', 'John Johnson', '1234567101'),
+(2, 'Bob Smith', 'male', 24, 'Physics', '1234567002', 'Emma Smith', '1234567102'),
+(3, 'Carol Brown', 'female', 23, 'Mathematics', '1234567003', 'James Brown', '1234567103'),
+(4, 'David Wilson', 'male', 21, 'Chemistry', '1234567004', 'Lily Wilson', '1234567104'),
+(5, 'Eva Davis', 'female', 22, 'Biology', '1234567005', 'Michael Davis', '1234567105'),
+(6, 'Frank Miller', 'male', 25, 'Architecture', '1234567006', 'Sophia Miller', '1234567106'),
+(7, 'Grace Moore', 'female', 20, 'Computer Science', '1234567007', 'Olivia Moore', '1234567107'),
+(8, 'Henry Taylor', 'male', 23, 'Business', '1234567008', 'Daniel Taylor', '1234567108'),
+(9, 'Ivy Anderson', 'female', 21, 'Art', '1234567009', 'Ella Anderson', '1234567109'),
+(10, 'Jack Thomas', 'male', 22, 'History', '1234567010', 'Liam Thomas', '1234567110'),
+(11, 'Jane Dyre', 'female', 23, 'Geography', '32322323', 'Neeson', '232323232'),
+(12, 'Karl Dyre', 'female', 20, 'CSC', '32322323', 'Karli', '232323232'),
+(13, 'Namart Earhe', 'male', 23, 'Theology', '11122323', 'Hope', '237780232');`;
 
 const query2 = `INSERT INTO BillingPeriod (periodId, periodNameId, tenantId, roomId, agreedPrice, periodType, ownStartingDate, ownEndDate) VALUES
 (1, 1, 1, 1, 800, 'single', null, null),
@@ -1041,36 +1057,39 @@ const query2 = `INSERT INTO BillingPeriod (periodId, periodNameId, tenantId, roo
 (10, 3, 10, 10, 1400, 'double', '2025-01-04', '2025-06-24'),
 (11, 2, 11, 7, 850, 'single', '2025-01-04', '2025-02-18'),
 (12, 1, 12, 8, 1200, 'double', '2024-01-04', '2025-01-04'),
-(13, 3, 13, 9, 700, 'single', '2024-06-04', '2025-07-02');`;
+(13, 3, 13, 9, 700, 'single', '2024-06-04', '2025-07-02');`
 
-const query3 = `INSERT INTO Transactionn (periodId, date, amount, deleted) VALUES
-( 1, '2024-11-01', 400, 0),
-( 1, '2024-11-02', 400, 0),
-( 2, '2024-11-02', 600, 0),
-( 3, '2024-11-03', 500, 0),
-( 3, '2024-11-04', 500, 0),
-( 4, '2024-11-05', 1000, 0),
-( 5, '2024-11-06', 700, 0),
-( 6, '2024-11-08', 1100, 0),
-( 7, '2024-11-09', 900, 0),
-( 10, '2024-11-05', 1400, 0),
-( 11, '2024-11-06', 700, 0),
-( 12, '2024-11-08', 100, 0),
-( 13, '2024-11-09', 600, 0),
-( 8, '2024-11-10', 1300, 0);`;
+const query3 = `INSERT INTO Transactionn (periodId, date, amount) VALUES
+( 1, '2024-11-01', 400),
+( 1, '2024-11-02', 400),
+( 2, '2024-11-02', 600),
+( 3, '2024-11-03', 500),
+( 3, '2024-11-04', 500),
+( 4, '2024-11-05', 1000),
+( 5, '2024-11-06', 700),
+( 6, '2024-11-08', 1100),
+( 7, '2024-11-09', 900),
+( 10, '2024-11-05', 1400),
+( 11, '2024-11-06', 700),
+( 12, '2024-11-08', 100),
+( 13, '2024-11-09', 600),
+( 8, '2024-11-10', 1300);`
 
+wipeTables()
 
-// createDefaultRooms()
+initializeTrigger()
 
-// setTimeout(async ()=> {await executeQuery(query1)}, 1000)
+createDefaultRooms()
 
-// setTimeout(async ()=> {await executeQuery(query2)}, 2000)
+setTimeout(async ()=> {await executeQuery(query1)}, 1000)
 
-// setTimeout(async()=>{await executeQuery(query3)}, 4000)
-// for (let i = 1; i <= 10; i++) {
-//   const ids = [151, 142, 143, 155, 189, 199, 140, 182, 172, 185]
-//   updateBillingPeriod(i, { roomId: ids[i - 1] })
-// }
+setTimeout(async ()=> {await executeQuery(query2)}, 2000)
+
+setTimeout(async()=>{await executeQuery(query3)}, 4000)
+for (let i = 1; i <= 10; i++) {
+  const ids = [151, 142, 143, 155, 189, 199, 140, 182, 172, 185]
+  updateBillingPeriod(i, { roomId: ids[i - 1] })
+}
 
 module.exports = {
   createAccount,
@@ -1082,7 +1101,7 @@ module.exports = {
   createTransaction,
   dashboardTotals,
   executeQuery,
-  executeSelect,
+  executeQuery,
   getAccountById,
   getAccountsDeadAndLiving,
   getAllRooms,
