@@ -183,7 +183,7 @@ async function initializeTrigger() {
 initializeTrigger()
 
 function login(username, password) {
-  const query = `SELECT * FROM Account WHERE username = ? AND password = ? AND approved = 1 AND deleted = 0`;
+  const query = `SELECT * FROM Account WHERE username = ? AND password = ? AND approved = true AND deleted = false`;
   const params = [username, password];
   return executeSelect(query, params);
 }
@@ -402,7 +402,7 @@ async function getPotentialTenantRoomsByGender(gender, levelNumber, periodNameId
   LEFT JOIN BillingPeriod bp ON r.roomId = bp.roomId AND bp.periodNameId = ?
   LEFT JOIN Tenant t ON bp.tenantId = t.tenantId
   WHERE r.levelNumber = ?
-    AND r.deleted = 0
+    AND r.deleted = false
     AND (
       bp.periodId IS NULL  -- Room is not occupied for the specified period
       OR (
@@ -426,8 +426,8 @@ function getMiscExpensesByDate(startDate, endDate = null) {
   FROM MiscExpense
   JOIN Account ON MiscExpense.operator = Account.accountId
   WHERE MiscExpense.date >= ? 
-    AND MiscExpense.deleted = 0
-    AND Account.deleted = 0
+    AND MiscExpense.deleted = false
+    AND Account.deleted = false
 `;
   const params = [startDate];
 
@@ -444,8 +444,8 @@ function getMiscExpensesForBillingPeriodName(periodNameId) {
   FROM MiscExpense
   JOIN Account ON MiscExpense.operator = Account.accountId
   WHERE MiscExpense.periodNameId = ?
-    AND MiscExpense.deleted = 0
-    AND Account.deleted = 0
+    AND MiscExpense.deleted = false
+    AND Account.deleted = false
   `;
   const params = [periodNameId];
 
@@ -453,44 +453,44 @@ function getMiscExpensesForBillingPeriodName(periodNameId) {
 }
 
 function getMostRecentTransaction(periodId) {
-  const query = `SELECT * FROM Transactionn WHERE periodId = ? AND deleted = 0 ORDER BY date DESC LIMIT 1`;
+  const query = `SELECT * FROM Transactionn WHERE periodId = ? AND deleted = false ORDER BY date DESC LIMIT 1`;
   return executeSelect(query, [periodId]);
 }
 
 function getTransactions(periodId) {
-  const query = `SELECT * FROM Transactionn WHERE periodId = ? AND deleted = 0 ORDER BY date DESC`;
+  const query = `SELECT * FROM Transactionn WHERE periodId = ? AND deleted = false ORDER BY date DESC`;
   return executeSelect(query, [periodId]);
 }
 
 function getTransactionsByBillingPeriodName(periodNameId) {
-  let query = 'SELECT Transactionn.* FROM Transactionn JOIN BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId WHERE BillingPeriod.periodNameId = ? AND Transactionn.deleted = 0 AND BillingPeriod.deleted = 0';
+  let query = 'SELECT Transactionn.* FROM Transactionn JOIN BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId WHERE BillingPeriod.periodNameId = ? AND Transactionn.deleted = false AND BillingPeriod.deleted = false';
 
   const params = [periodNameId];
   return executeSelect(query, params);
 }
 
 function getAccountsDeadAndLiving() {
-  const query = `SELECT * FROM Account WHERE deleted = 0`;
+  const query = `SELECT * FROM Account WHERE deleted = false`;
   return executeSelect(query);
 }
 
 function getUnapprovedAccounts() {// seems to be useless
-  const query = `SELECT * FROM Account WHERE approved = 0`;
+  const query = `SELECT * FROM Account WHERE approved = false`;
   return executeSelect(query);
 }
 
 function getLevels() {
-  const query = `SELECT DISTINCT levelNumber FROM Room WHERE deleted = 0`;
+  const query = `SELECT DISTINCT levelNumber FROM Room WHERE deleted = false`;
   return executeSelect(query);
 }
 
 function getAllRooms() {
-  const query = `SELECT * FROM Room WHERE deleted = 0`;
+  const query = `SELECT * FROM Room WHERE deleted = false`;
   return executeSelect(query);
 }
 
 function getBillingPeriodNames() {
-  const query = `SELECT * FROM BillingPeriodName WHERE deleted = 0`
+  const query = `SELECT * FROM BillingPeriodName WHERE deleted = false`
   return executeSelect(query);
 }
 
@@ -507,8 +507,8 @@ async function getRoomsAndOccupancyByLevel(levelNumber, periodNameId) {
     LEFT JOIN BillingPeriod ON Room.roomId = BillingPeriod.roomId 
       AND BillingPeriod.periodNameId = ? AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
     WHERE Room.levelNumber = ? 
-    AND Room.deleted = 0 
-    AND BillingPeriod.deleted = 0
+    AND Room.deleted = false 
+    AND BillingPeriod.deleted = false
     GROUP BY Room.roomId
   `;
   const params = [periodNameId, levelNumber];
@@ -523,9 +523,9 @@ function getTenantsByLevel(levelNumber, periodNameId) {
     JOIN Room ON BillingPeriod.roomId = Room.roomId
     WHERE BillingPeriod.periodNameId = ? 
       AND Room.levelNumber = ?
-      AND Tenant.deleted = 0 
-      AND BillingPeriod.deleted = 0
-      AND Room.deleted = 0
+      AND Tenant.deleted = false 
+      AND BillingPeriod.deleted = false
+      AND Room.deleted = false
   `;
   return executeSelect(query, [periodNameId, levelNumber]);
 }
@@ -536,12 +536,12 @@ async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
       BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
-    LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = 0
+    LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = false
     WHERE BillingPeriod.roomId = ? 
       AND BillingPeriod.periodNameId = ?
       AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
-      AND Tenant.deleted = 0 
-      AND BillingPeriod.deleted = 0
+      AND Tenant.deleted = false 
+      AND BillingPeriod.deleted = false
     GROUP BY Tenant.tenantId
   `;
   const params = [roomId, periodNameId];
@@ -553,7 +553,7 @@ function getAllTenants(periodNameId) {
     SELECT Tenant.* 
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
-    WHERE BillingPeriod.periodNameId = ? AND Tenant.deleted = 0 AND BillingPeriod.deleted = 0
+    WHERE BillingPeriod.periodNameId = ? AND Tenant.deleted = false AND BillingPeriod.deleted = false
   `;
   return executeSelect(query, [periodNameId]);
 }
@@ -563,7 +563,7 @@ function getAllTenantsNameAndId(periodNameId) {
     SELECT Tenant.tenantId, Tenant.name 
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
-    WHERE BillingPeriod.periodNameId = ? AND Tenant.deleted = 0 AND BillingPeriod.deleted = 0
+    WHERE BillingPeriod.periodNameId = ? AND Tenant.deleted = false AND BillingPeriod.deleted = false
   `;
   return executeSelect(query, [periodNameId]);
 }
@@ -574,24 +574,24 @@ function getTenantsByBillingPeriodName(periodNameId) {
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     WHERE BillingPeriod.periodNameId = ? 
-      AND Tenant.deleted = 0 
-      AND BillingPeriod.deleted = 0
+      AND Tenant.deleted = false 
+      AND BillingPeriod.deleted = false
   `;
   return executeSelect(query, [periodNameId]);
 }
 
 function getMiscExpenseById(miscExpenseId) {
-  const query = `SELECT * FROM MiscExpense WHERE miscExpenseId = ? AND deleted = 0`;
+  const query = `SELECT * FROM MiscExpense WHERE miscExpenseId = ? AND deleted = false`;
   return executeSelect(query, [miscExpenseId]);
 }
 
 function getTransactionById(transactionId) {
-  const query = `SELECT * FROM Transactionn WHERE transactionId = ? AND deleted = 0`;
+  const query = `SELECT * FROM Transactionn WHERE transactionId = ? AND deleted = false`;
   return executeSelect(query, [transactionId]);
 }
 
 function getAccountById(accountId) {
-  const query = `SELECT * FROM Account WHERE accountId = ? AND deleted = 0`;
+  const query = `SELECT * FROM Account WHERE accountId = ? AND deleted = false`;
   return executeSelect(query, [accountId]);
 }
 
@@ -601,13 +601,13 @@ function getMonthliesFor(tenantId) {
   WHERE ownStartingDate IS NOT NULL
   AND ownEndDate IS NOT NULL
   AND tenantId = ?
-  AND BillingPeriod.deleted = 0`
+  AND BillingPeriod.deleted = false`
 
   return executeSelect(query, [tenantId])
 }
 
 function getBillingPeriodById(periodId) {
-  const query = `SELECT * FROM BillingPeriod WHERE periodId = ? AND deleted = 0`;
+  const query = `SELECT * FROM BillingPeriod WHERE periodId = ? AND deleted = false`;
   return executeSelect(query, [periodId]);
 }
 
@@ -617,7 +617,7 @@ function getBillingPeriodBeingPaidFor(tenantId, periodNameId) {
   WHERE tenantId = ? 
   AND periodNameId = ?
   AND ownEndDate IS NULL
-  AND BillingPeriod.deleted = 0 `;
+  AND BillingPeriod.deleted = false `;
   return executeSelect(query, [tenantId, periodNameId]);
 }
 
@@ -630,9 +630,9 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
     JOIN Room on BillingPeriod.roomId = Room.roomId
     LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId 
     WHERE BillingPeriod.periodNameId = ? 
-      AND Tenant.deleted = 0 
-      AND Transactionn.deleted = 0
-      AND BillingPeriod.deleted = 0
+      AND Tenant.deleted = false 
+      AND Transactionn.deleted = false
+      AND BillingPeriod.deleted = false
     GROUP BY Tenant.tenantId
     HAVING owingAmount > 0
   `;
@@ -647,12 +647,12 @@ function getTenantsPlusOutstandingBalanceAll(periodNameId) {
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room on BillingPeriod.roomId = Room.roomId
-    LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = 0
+    LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = false
     WHERE BillingPeriod.periodNameId = ? 
       AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
-      AND Tenant.deleted = 0 
-      AND BillingPeriod.deleted = 0
-      AND Room.deleted = 0
+      AND Tenant.deleted = false 
+      AND BillingPeriod.deleted = false
+      AND Room.deleted = false
     GROUP BY Tenant.tenantId
   `;
 
@@ -669,7 +669,7 @@ async function getFullTenantProfile(tenantId) {
     LEFT JOIN Room r ON b.roomId = r.roomId
     LEFT JOIN Transactionn tr ON b.periodId = tr.periodId
     WHERE t.tenantId = ?
-    AND t.deleted = 0 AND tr.deleted = 0 AND r.deleted = 0 AND b.deleted = 0
+    AND t.deleted = false AND tr.deleted = false AND r.deleted = false AND b.deleted = false
   `;
   
   const results = await executeSelect(query, [tenantId]);
@@ -740,7 +740,7 @@ function searchTenantByName(name) {
     JOIN BillingPeriod bp ON t.tenantId = bp.tenantId
     JOIN Room r ON bp.roomId = r.roomId
     JOIN BillingPeriodName bpn ON bp.periodNameId = bpn.periodNameId
-    WHERE t.name LIKE ? AND t.deleted = 0 AND bp.deleted = 0 AND r.deleted = 0
+    WHERE t.name LIKE ? AND t.deleted = false AND bp.deleted = false AND r.deleted = false
   `;
   return executeSelect(query, [`%${name}%`]);
 }
@@ -751,7 +751,7 @@ function searchTenantNameAndId(name) {
       t.tenantId, 
       t.name
     FROM Tenant t
-    WHERE t.name LIKE ? AND t.deleted = 0
+    WHERE t.name LIKE ? AND t.deleted = false
   `;
   return executeSelect(query, [`%${name}%`]);
 }
@@ -762,7 +762,7 @@ function searchRoomByNamePart(name) {
       r.roomId, 
       r.roomName
     FROM Room r
-    WHERE r.roomName LIKE ? AND r.deleted = 0
+    WHERE r.roomName LIKE ? AND r.deleted = false
   `;
   return executeSelect(query, [`%${name}%`]);
 }
@@ -773,12 +773,12 @@ function getTenantsOfBillingPeriodXButNotY(periodNameId1, periodNameId2) {
     FROM Tenant
     JOIN BillingPeriod bp1 ON Tenant.tenantId = bp1.tenantId
     WHERE bp1.periodNameId = ?
-      AND Tenant.deleted = 0
-      AND bp1.deleted = 0
+      AND Tenant.deleted = false
+      AND bp1.deleted = false
       AND Tenant.tenantId NOT IN (
         SELECT bp2.tenantId
         FROM BillingPeriod bp2
-        WHERE bp2.periodNameId = ? AND bp2.deleted = 0
+        WHERE bp2.periodNameId = ? AND bp2.deleted = false
       )
   `;
   const params = [periodNameId1, periodNameId2];
@@ -793,7 +793,7 @@ function getOlderTenantsThan(periodNameId) {
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room ON BillingPeriod.roomId = Room.roomId
     JOIN BillingPeriodName ON BillingPeriod.periodNameId = BillingPeriodName.periodNameId
-    LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = 0
+    LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = false
     WHERE (
       BillingPeriodName.startingDate < (
           SELECT startingDate FROM BillingPeriodName WHERE periodNameId = ?
@@ -801,17 +801,17 @@ function getOlderTenantsThan(periodNameId) {
         SELECT tenantId
         FROM BillingPeriod
         WHERE periodNameId = ?
-        AND deleted = 0
+        AND deleted = false
       ) 
     ) OR (
       BillingPeriodName.periodNameId = ? 
       AND BillingPeriod.ownEndDate IS NOT NULL 
       AND BillingPeriod.ownEndDate < CURRENT_DATE
     )
-    AND Tenant.deleted = 0
-    AND BillingPeriod.deleted = 0
-    AND BillingPeriodName.deleted = 0
-    AND Room.deleted = 0
+    AND Tenant.deleted = false
+    AND BillingPeriod.deleted = false
+    AND BillingPeriodName.deleted = false
+    AND Room.deleted = false
     
     GROUP BY Tenant.tenantId, Room.roomName, BillingPeriod.agreedPrice
     ORDER BY owingAmount DESC, Tenant.name;
@@ -839,11 +839,11 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
     JOIN Room ON BillingPeriod.roomId = Room.roomId
     JOIN BillingPeriodName ON BillingPeriod.periodNameId = BillingPeriodName.periodNameId
     WHERE BillingPeriod.periodNameId = ?
-      AND Transactionn.deleted = 0
-      AND BillingPeriod.deleted = 0
-      AND Tenant.deleted = 0
-      AND Room.deleted = 0
-      AND BillingPeriodName.deleted = 0
+      AND Transactionn.deleted = false
+      AND BillingPeriod.deleted = false
+      AND Tenant.deleted = false
+      AND Room.deleted = false
+      AND BillingPeriodName.deleted = false
     GROUP BY Transactionn.transactionId
   `;
 
@@ -870,26 +870,26 @@ async function dashboardTotals(periodNameId) {
         FROM Tenant
         JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
         JOIN Room ON BillingPeriod.roomId = Room.roomId
-        LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = 0
+        LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = false
         WHERE BillingPeriod.periodNameId = ? 
           AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
-          AND Tenant.deleted = 0 
-          AND BillingPeriod.deleted = 0
-          AND Room.deleted = 0
+          AND Tenant.deleted = false 
+          AND BillingPeriod.deleted = false
+          AND Room.deleted = false
         GROUP BY Tenant.tenantId
       ) AS groupedRecords;
     `,
     totalFreeSpaces: `
       WITH TotalRoomSpaces AS (
           SELECT COUNT(*) * 2 AS totalSpaces
-          FROM Room WHERE Room.deleted = 0
+          FROM Room WHERE Room.deleted = false
       ),
       OccupiedSpaces AS (
           SELECT SUM(CASE WHEN BillingPeriod.periodType = 'single' THEN 2
                   ELSE 1 END) AS occupiedSpaces
           FROM BillingPeriod WHERE periodNameId = ? 
           AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
-          AND deleted = 0
+          AND deleted = false
       )
       SELECT 
           TotalRoomSpaces.totalSpaces - IFNULL(OccupiedSpaces.occupiedSpaces, 0) AS totalFreeSpaces
@@ -901,8 +901,8 @@ async function dashboardTotals(periodNameId) {
       FROM Transactionn
       JOIN BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId
       WHERE BillingPeriod.periodNameId = ?
-        AND Transactionn.deleted = 0
-        AND BillingPeriod.deleted = 0;
+        AND Transactionn.deleted = false
+        AND BillingPeriod.deleted = false;
     `,
     totalOutstanding: `
         SELECT COALESCE(SUM(BillingPeriod.agreedPrice) - (
@@ -913,14 +913,14 @@ async function dashboardTotals(periodNameId) {
             JOIN 
                 BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId 
             WHERE 
-                transactionn.deleted = 0 
-                AND BillingPeriod.deleted = 0 
+                transactionn.deleted = false 
+                AND BillingPeriod.deleted = false 
                 AND BillingPeriod.periodNameId = ?
             ), 0) AS totalOutstanding
         FROM BillingPeriod
         WHERE 
             BillingPeriod.periodNameId = ? 
-            AND BillingPeriod.deleted = 0;
+            AND BillingPeriod.deleted = false;
     `,
     totalMisc: `
         SELECT 
@@ -929,7 +929,7 @@ async function dashboardTotals(periodNameId) {
             MiscExpense
         WHERE 
             MiscExpense.periodNameId = ?
-            AND MiscExpense.deleted = 0;
+            AND MiscExpense.deleted = false;
     `,
     totalPastTenants: `
       SELECT COUNT(DISTINCT Tenant.tenantId) as totalPastTenants
@@ -949,18 +949,18 @@ async function dashboardTotals(periodNameId) {
           SELECT tenantId
           FROM BillingPeriod
           WHERE periodNameId = ?
-          AND deleted = 0
+          AND deleted = false
         )    
       ) OR (
         BillingPeriodName.periodNameId = ? 
         AND BillingPeriod.ownEndDate IS NOT NULL 
         AND BillingPeriod.ownEndDate < CURRENT_DATE
       )
-      AND Tenant.deleted = 0
-      AND Transactionn.deleted = 0
-      AND BillingPeriod.deleted = 0
-      AND BillingPeriodName.deleted = 0
-      AND Room.deleted = 0;
+      AND Tenant.deleted = false
+      AND Transactionn.deleted = false
+      AND BillingPeriod.deleted = false
+      AND BillingPeriodName.deleted = false
+      AND Room.deleted = false;
     `,
   };
   
