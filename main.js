@@ -33,12 +33,13 @@ app.post('/call', async (req, res) => {
       const resp = await dbScript[funcName](...params);
       return res.json({ success: true, data: resp });
     } else {
-      throw new Error('Function not found');
+      console.error("Function not found:", funcName)
+      return res.json({ success: false, message: 'Function not found:' + funcName})
     }
   } catch (error) {
-    console.error('Error in function call:', error);
+    console.error(error.message || error);
     console.log('variables:', params);
-    return res.json({ success: false, error: error.message });
+    return res.json({ success: false, error: error.message || error });
   }
 });
 

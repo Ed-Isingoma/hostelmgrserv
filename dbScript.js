@@ -2,6 +2,7 @@ const { Pool } = require('pg');
 require('dotenv').config(); 
 
 // PostgreSQL connection pool
+
 const pool = new Pool({
   user: process.env.USERNAME,
   host: process.env.HOST,
@@ -179,7 +180,7 @@ async function initializeTrigger() {
   }
 }
 
-// initializeTrigger()
+initializeTrigger()
 
 function login(username, password) {
   const query = `SELECT * FROM Account WHERE username = ? AND password = ? AND approved = 1 AND deleted = 0`;
