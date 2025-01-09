@@ -182,7 +182,7 @@ async function initializeTrigger() {
   const checkQuery = `SELECT COUNT(*) AS count FROM Account`;
   try {
     const rows = await executeQuery(checkQuery);
-    const isEmpty = rows[0].count === 0;
+    const isEmpty = rows[0].count == 0
     if (isEmpty) {
       const makeAdmin = `INSERT INTO Account (username, password, role, approved) VALUES (?, ?, ?, ?)`
       const params = ['admin', '2024admin', 'admin', true]
