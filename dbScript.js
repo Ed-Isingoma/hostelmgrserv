@@ -2,8 +2,8 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const credentials = {
-  apiKey: AFRSTK_API,
-  username: USRNAME
+  apiKey: process.env.AFRSTK_API,
+  username: process.env.USRNAME
 }
 const AfricasTalking = require('africastalking')(credentials)
 
