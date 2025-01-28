@@ -1,6 +1,12 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const credentials = {
+  apiKey: AFRSTK_API,
+  username: USRNAME
+}
+const AfricasTalking = require('africastalking')(credentials)
+
 // PostgreSQL connection pool
 
 const pool = new Pool({
@@ -478,13 +484,6 @@ function getTransactions(periodId) {
   return executeQuery(query, [periodId]);
 }
 
-function getTransactionsByBillingPeriodName(periodNameId) {
-  let query = 'SELECT Transactionn.* FROM Transactionn JOIN BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId WHERE BillingPeriod.periodNameId = ? AND Transactionn.deleted = false AND BillingPeriod.deleted = false';
-
-  const params = [periodNameId];
-  return executeQuery(query, params);
-}
-
 function getAccountsDeadAndLiving() {
   const query = `SELECT * FROM Account WHERE deleted = false`;
   return executeQuery(query);
@@ -522,9 +521,9 @@ async function getRoomsAndOccupancyByLevel(levelNumber, periodNameId) {
     FROM Room
     LEFT JOIN BillingPeriod ON Room.roomId = BillingPeriod.roomId 
       AND BillingPeriod.periodNameId = ? AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
+      AND BillingPeriod.deleted = 0
     WHERE Room.levelNumber = ? 
-    AND Room.deleted = false 
-    AND BillingPeriod.deleted = false
+      AND Room.deleted = 0 
     GROUP BY Room.roomId
   `;
   const params = [periodNameId, levelNumber];
@@ -549,7 +548,7 @@ function getTenantsByLevel(levelNumber, periodNameId) {
 async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
   const query = `
     SELECT Tenant.name, Tenant.gender,
-      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount
+      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = false
@@ -659,7 +658,7 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
 function getTenantsPlusOutstandingBalanceAll(periodNameId) {
   const query = `
     SELECT Tenant.*, Room.roomName,
-      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount
+      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, BillingPeriod.ownEndDate
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room on BillingPeriod.roomId = Room.roomId
@@ -803,7 +802,7 @@ function getTenantsOfBillingPeriodXButNotY(periodNameId1, periodNameId2) {
 
 function getOlderTenantsThan(periodNameId) {
   let query = `
-    SELECT Tenant.*, Room.roomName, 
+    SELECT Tenant.*, Room.roomName, BillingPeriodName.name as lastSeen,
        BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
@@ -843,7 +842,7 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
       Transactionn.date AS date,
       Transactionn.amount AS amount,
       Tenant.name AS tenantName,
-      Tenant.tenantId AS tenandId,
+      Tenant.tenantId AS tenantId,
       Tenant.ownContact AS contact,
       Room.roomName,
       BillingPeriodName.name AS billingPeriodName,
@@ -861,10 +860,99 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
       AND Room.deleted = false
       AND BillingPeriodName.deleted = false
     GROUP BY Transactionn.transactionId
+    ORDER BY date DESC
   `;
 
   const params = [periodNameId];
-  return await executeQuery(query, params);
+  const unbalanced = await executeSelect(query, params);
+  return balanceOwingAmts(unbalanced)
+}
+
+function balanceOwingAmts(transactions) {
+  const y = [];
+
+  transactions.reverse()
+
+  transactions.forEach((transaction) => {
+    const tenantId = transaction.tenantId;
+
+    if (y.includes(tenantId)) {
+      const lastIndex = y.lastIndexOf(tenantId);
+      const previousTransaction = transactions[lastIndex];
+      transaction.owingAmount = previousTransaction.owingAmount - transaction.amount;
+    }
+
+    y.push(tenantId);
+  })
+
+  return transactions.reverse()
+}
+
+async function sendReceipt(transactionId) {
+  const detailsQuery = `SELECT 
+      t.ownContact,
+      tr.periodId,
+      bp.agreedPrice,
+      tr.amount,
+      bpn.name AS periodName,
+      bp.ownEndDate
+    FROM Transactionn tr
+    INNER JOIN BillingPeriod bp ON tr.periodId = bp.periodId
+    INNER JOIN Tenant t ON bp.tenantId = t.tenantId
+    INNER JOIN BillingPeriodName bpn ON bp.periodNameId = bpn.periodNameId
+    WHERE tr.transactionId = ?`;
+
+  const sumQuery = `SELECT 
+      SUM(tr.amount) AS totalAmount
+    FROM Transactionn tr
+    WHERE tr.periodId = ?`;
+
+  try {
+    const details = await executeQuery(detailsQuery, [transactionId]);
+    if (!details.length) {
+      console.log("No details found for transactionId:", transactionId);
+      return false;
+    }
+
+    const periodId = details[0].periodId;
+    const sum = await executeQuery(sumQuery, [periodId]);
+
+    function formatNumber(num) {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    let ownContact = details[0].ownContact.trim();
+
+    if (/^0\d{9}$/.test(ownContact)) {
+      ownContact = "+256" + ownContact.slice(1);
+    }
+
+    const validPrefixes = ["+25677", "+25678", "+25675", "+25670", "+25674", "+25676"];
+    if (!validPrefixes.some(prefix => ownContact.startsWith(prefix))) {
+      console.log("Invalid phone number format:", ownContact);
+      return false;
+    }
+
+    const sms = AfricasTalking.SMS;
+    const options = {
+      // to: [ownContact],
+      to: ['+256783103587'],
+      message: `Hello, We have received your payment of UGX ${formatNumber(details[0].amount)} to Kann Hostel for ${details[0].ownEndDate ? `the period ending on ${details[0].ownEndDate}` : details[0].periodName}. Your outstanding balance is UGX ${formatNumber(details[0].agreedPrice - (sum[0].totalAmount || 0))}. Transaction ID: KN${transactionId}. Thank you.`,
+      from: 'ATEducTech'
+    };
+
+    await sms.send(options)
+      .then(response => console.log("SMS sent:", response))
+      .catch(error => {
+        console.error("Error sending SMS:", error);
+        throw error;
+      });
+
+    return true;
+  } catch (error) {
+    console.error("Error in sendReceipt:", error);
+    return false;
+  }
 }
 
 async function dashboardTotals(periodNameId) {
@@ -983,9 +1071,9 @@ async function dashboardTotals(periodNameId) {
   totals.totalTenants = await executeQuery(queries.totalTenants, [periodNameId]);
   totals.totalPayments = await executeQuery(queries.totalPayments, [periodNameId]);
   totals.totalFreeSpaces = await executeQuery(queries.totalFreeSpaces, [periodNameId])
-  totals.totalOutstanding = await executeQuery(queries.totalOutstanding, [periodNameId]);
+  totals.totalOutstanding = await executeQuery(queries.totalOutstanding, [periodNameId, periodNameId]);
   totals.totalMisc = await executeQuery(queries.totalMisc, [periodNameId]);
-  totals.totalPastTenants = await executeQuery(queries.totalPastTenants, [periodNameId, periodNameId]);
+  totals.totalPastTenants = await executeQuery(queries.totalPastTenants, [periodNameId, periodNameId, periodNameId]);
 
   totals.totalTenants = totals.totalTenants[0].totalTenants
   totals.totalPayments = totals.totalPayments[0].totalPayments
@@ -1075,8 +1163,8 @@ const query3 = `INSERT INTO Transactionn (periodId, date, amount) VALUES
 ( 13, '2024-11-09', 600),
 ( 8, '2024-11-10', 1300);`
 
-// to reset db
-// wipeTables()
+// to reset db --but these arent exported for security
+// wipeTables() 
 // initializeTrigger()
 // createDefaultRooms()
 // createOtherDefaults()
@@ -1097,9 +1185,9 @@ module.exports = {
   createAccount,
   createBillingPeriod,
   createBillingPeriodName,
-  createDefaultRooms,
+  // createDefaultRooms,
   createMiscExpense,
-  createOtherDefaults,
+  // createOtherDefaults,
   createTenant,
   createTransaction,
   dashboardTotals,
@@ -1131,7 +1219,6 @@ module.exports = {
   getTenantsPlusOutstandingBalanceAll,
   getTransactionById,
   getTransactions,
-  getTransactionsByBillingPeriodName,
   getTransactionsByPeriodNameIdWithMetaData,
   getUnapprovedAccounts,
   initializeTrigger,
@@ -1140,6 +1227,7 @@ module.exports = {
   searchTenantByName,
   searchTenantNameAndId,
   searchRoomByNamePart,
+  sendReceipt,
   updateAccount,
   updateBillingPeriod,
   updateBillingPeriodName,
@@ -1147,9 +1235,5 @@ module.exports = {
   updateRoom,
   updateTenant,
   updateTransaction,
-  wipeTables
-};
-
-
-
-
+  // wipeTables
+}
