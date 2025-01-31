@@ -548,7 +548,7 @@ function getTenantsByLevel(levelNumber, periodNameId) {
 async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
   const query = `
     SELECT Tenant.name, Tenant.gender,
-      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
+      BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     LEFT JOIN Transactionn ON BillingPeriod.periodId = Transactionn.periodId AND Transactionn.deleted = false
@@ -639,7 +639,7 @@ function getBillingPeriodBeingPaidFor(tenantId, periodNameId) {
 function getOnlyTenantsWithOwingAmt(periodNameId) {
   const query = `
     SELECT Tenant.*, Room.roomName, BillingPeriod.agreedPrice, Transactionn.date, BillingPeriod.demandNoticeDate,
-      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
+      BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room on BillingPeriod.roomId = Room.roomId
@@ -658,7 +658,7 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
 function getTenantsPlusOutstandingBalanceAll(periodNameId) {
   const query = `
     SELECT Tenant.*, Room.roomName,
-      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, BillingPeriod.ownEndDate
+      BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, BillingPeriod.ownEndDate
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room on BillingPeriod.roomId = Room.roomId
@@ -802,8 +802,8 @@ function getTenantsOfBillingPeriodXButNotY(periodNameId1, periodNameId2) {
 
 function getOlderTenantsThan(periodNameId) {
   let query = `
-    SELECT Tenant.*, Room.roomName, BillingPeriodName.name as lastSeen,
-       BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
+    SELECT Tenant.*, Room.roomName, BillingPeriodName.name AS lastSeen,
+       BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room ON BillingPeriod.roomId = Room.roomId
@@ -846,7 +846,7 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
       Tenant.ownContact AS contact,
       Room.roomName,
       BillingPeriodName.name AS billingPeriodName,
-      BillingPeriod.agreedPrice - IFNULL(SUM(Transactionn.amount), 0) AS owingAmount,
+      BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount,
       Transactionn.transactionId AS transactionId
     FROM Transactionn
     JOIN BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId
@@ -996,7 +996,7 @@ async function dashboardTotals(periodNameId) {
           AND deleted = false
       )
       SELECT 
-          TotalRoomSpaces.totalSpaces - IFNULL(OccupiedSpaces.occupiedSpaces, 0) AS totalFreeSpaces
+          TotalRoomSpaces.totalSpaces - COALESCE(OccupiedSpaces.occupiedSpaces, 0) AS totalFreeSpaces
       FROM TotalRoomSpaces, OccupiedSpaces;
     `,
     totalPayments: `
@@ -1036,7 +1036,7 @@ async function dashboardTotals(periodNameId) {
             AND MiscExpense.deleted = false;
     `,
     totalPastTenants: `
-      SELECT COUNT(DISTINCT Tenant.tenantId) as totalPastTenants
+      SELECT COUNT(DISTINCT Tenant.tenantId) AS totalPastTenants
       FROM Tenant
       JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
       JOIN Room ON BillingPeriod.roomId = Room.roomId
