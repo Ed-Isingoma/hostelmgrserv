@@ -1075,12 +1075,12 @@ async function dashboardTotals(periodNameId) {
   totals.totalMisc = await executeQuery(queries.totalMisc, [periodNameId]);
   totals.totalPastTenants = await executeQuery(queries.totalPastTenants, [periodNameId, periodNameId, periodNameId]);
 
-  totals.totalTenants = totals.totalTenants[0].totalTenants
-  totals.totalPayments = totals.totalPayments[0].totalPayments
-  totals.totalFreeSpaces = totals.totalFreeSpaces[0].totalFreeSpaces
-  totals.totalOutstanding = totals.totalOutstanding[0].totalOutstanding
-  totals.totalMisc = totals.totalMisc[0].totalMisc
-  totals.totalPastTenants = totals.totalPastTenants[0].totalPastTenants
+  totals.totalTenants = totals.totalTenants[0].totaltenants
+  totals.totalPayments = totals.totalPayments[0].totalpayments
+  totals.totalFreeSpaces = totals.totalFreeSpaces[0].totalfreespaces
+  totals.totalOutstanding = totals.totalOutstanding[0].totaloutstanding
+  totals.totalMisc = totals.totalMisc[0].totalmisc
+  totals.totalPastTenants = totals.totalPastTenants[0].totalpasttenants
 
   return totals;
 }
