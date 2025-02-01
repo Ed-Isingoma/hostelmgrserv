@@ -433,7 +433,7 @@ async function getPotentialTenantRoomsByGender(gender, levelNumber, periodNameId
         AND t.gender = ? -- Occupant is of the matching gender
       )
     )
-  GROUP BY r.roomId
+  GROUP BY r.roomId, r.roomName
   HAVING COUNT(t.tenantId) <= 1;  -- Room has zero or one occupants
 `;
 
@@ -524,7 +524,7 @@ async function getRoomsAndOccupancyByLevel(levelNumber, periodNameId) {
       AND BillingPeriod.deleted = 0
     WHERE Room.levelNumber = ? 
       AND Room.deleted = 0 
-    GROUP BY Room.roomId
+    GROUP BY Room.roomId, Room.roomName, Room.levelNumber
   `;
   const params = [periodNameId, levelNumber];
   return executeQuery(query, params)
@@ -557,7 +557,7 @@ async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
       AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
       AND Tenant.deleted = false 
       AND BillingPeriod.deleted = false
-    GROUP BY Tenant.tenantId
+    GROUP BY Tenant.tenantId, Tenant.name, Tenant.gender, BillingPeriod.ownEndDate
   `;
   const params = [roomId, periodNameId];
   return await executeQuery(query, params);
@@ -638,7 +638,7 @@ function getBillingPeriodBeingPaidFor(tenantId, periodNameId) {
 
 function getOnlyTenantsWithOwingAmt(periodNameId) {
   const query = `
-    SELECT Tenant.*, Room.roomName, BillingPeriod.agreedPrice, Transactionn.date, BillingPeriod.demandNoticeDate,
+    SELECT Tenant.name, Tenant.ownContact, Tenant.tenantId, Room.roomName, BillingPeriod.agreedPrice, Transactionn.date, BillingPeriod.demandNoticeDate,
       BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
@@ -648,7 +648,7 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
       AND Tenant.deleted = false 
       AND Transactionn.deleted = false
       AND BillingPeriod.deleted = false
-    GROUP BY Tenant.tenantId
+    GROUP BY Tenant.tenantId, Tenant.name, Tenant.ownContact, Room.roomName, BillingPeriod.agreedPrice, Transactionn.date, BillingPeriod.demandNoticeDate, BillingPeriod.ownEndDate
     HAVING owingAmount > 0
   `;
   const params = [periodNameId];
@@ -657,7 +657,7 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
 
 function getTenantsPlusOutstandingBalanceAll(periodNameId) {
   const query = `
-    SELECT Tenant.*, Room.roomName,
+    SELECT Tenant.name, Tenant.gender, Tenant.tenantId, Tenant.ownContact, Room.roomName,
       BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, BillingPeriod.ownEndDate
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
@@ -668,7 +668,7 @@ function getTenantsPlusOutstandingBalanceAll(periodNameId) {
       AND Tenant.deleted = false 
       AND BillingPeriod.deleted = false
       AND Room.deleted = false
-    GROUP BY Tenant.tenantId
+    GROUP BY Tenant.name, Tenant.gender, Tenant.tenantId, Tenant.ownContact, BillingPeriod.agreedPrice, Room.roomName, BillingPeriod.ownEndDate
   `;
 
   const params = [periodNameId];
@@ -802,8 +802,8 @@ function getTenantsOfBillingPeriodXButNotY(periodNameId1, periodNameId2) {
 
 function getOlderTenantsThan(periodNameId) {
   let query = `
-    SELECT Tenant.*, Room.roomName, BillingPeriodName.name AS lastSeen,
-       BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
+    SELECT Tenant.tenantId, Tenant.name, Tenant.gender, Tenant.ownContact, Room.roomName, BillingPeriodName.name AS lastSeen,
+    BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) AS owingAmount, CASE WHEN BillingPeriod.ownEndDate IS NOT NULL THEN 'Yes' ELSE 'No' END AS paysMonthly
     FROM Tenant
     JOIN BillingPeriod ON Tenant.tenantId = BillingPeriod.tenantId
     JOIN Room ON BillingPeriod.roomId = Room.roomId
@@ -828,7 +828,7 @@ function getOlderTenantsThan(periodNameId) {
     AND BillingPeriodName.deleted = false
     AND Room.deleted = false
     
-    GROUP BY Tenant.tenantId, Room.roomName, BillingPeriod.agreedPrice
+    GROUP BY Tenant.tenantId, Tenant.name, Tenant.gender, Tenant.ownContact, Room.roomName, BillingPeriod.agreedPrice, BillingPeriodName.name, BillingPeriod.ownEndDate
     ORDER BY owingAmount DESC, Tenant.name;
   `
 
@@ -859,7 +859,7 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
       AND Tenant.deleted = false
       AND Room.deleted = false
       AND BillingPeriodName.deleted = false
-    GROUP BY Transactionn.transactionId
+    GROUP BY Transactionn.transactionId, Transactionn.date, Transactionn.amount, Tenant.name, Tenant.tenantId, Tenant.ownContact, Room.roomName, BillingPeriodName.name, BillingPeriod.agreedPrice
     ORDER BY date DESC
   `;
 
