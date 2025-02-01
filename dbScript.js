@@ -163,22 +163,11 @@ async function wipeTables() {
 function prepareQuery(query, params) {
   let paramIndex = 1;
   let resultQuery = '';
-  let removedWord = '';
-
-  const likeMatch = query.match(/\bLIKE\b\s+(\S+)/i);
-  if (likeMatch) {
-    removedWord = likeMatch[1];
-    query = query.replace(/\bLIKE\b\s+\S+/i, 'LIKE');
-  }
 
   const parts = query.split('?');
   resultQuery = parts
     .map((part, index) => (index < parts.length - 1 ? `${part}$${paramIndex++}` : part))
     .join('');
-
-  if (removedWord) {
-    resultQuery = resultQuery.replace(/\bLIKE\b/i, `LIKE ${removedWord}`);
-  }
 
   return { query: resultQuery, params };
 }
@@ -521,9 +510,9 @@ async function getRoomsAndOccupancyByLevel(levelNumber, periodNameId) {
     FROM Room
     LEFT JOIN BillingPeriod ON Room.roomId = BillingPeriod.roomId 
       AND BillingPeriod.periodNameId = ? AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
-      AND BillingPeriod.deleted = 0
+      AND BillingPeriod.deleted = false
     WHERE Room.levelNumber = ? 
-      AND Room.deleted = 0 
+      AND Room.deleted = false
     GROUP BY Room.roomId, Room.roomName, Room.levelNumber
   `;
   const params = [periodNameId, levelNumber];
@@ -649,7 +638,7 @@ function getOnlyTenantsWithOwingAmt(periodNameId) {
       AND Transactionn.deleted = false
       AND BillingPeriod.deleted = false
     GROUP BY Tenant.tenantId, Tenant.name, Tenant.ownContact, Room.roomName, BillingPeriod.agreedPrice, Transactionn.date, BillingPeriod.demandNoticeDate, BillingPeriod.ownEndDate
-    HAVING owingAmount > 0
+    HAVING BillingPeriod.agreedPrice - COALESCE(SUM(Transactionn.amount), 0) > 0
   `;
   const params = [periodNameId];
   return executeQuery(query, params);
@@ -832,7 +821,7 @@ function getOlderTenantsThan(periodNameId) {
     ORDER BY owingAmount DESC, Tenant.name;
   `
 
-  const params = [periodNameId, periodNameId];
+  const params = [periodNameId, periodNameId, periodNameId];
   return executeQuery(query, params);
 }
 
@@ -864,7 +853,7 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
   `;
 
   const params = [periodNameId];
-  const unbalanced = await executeSelect(query, params);
+  const unbalanced = await executeQuery(query, params);
   return balanceOwingAmts(unbalanced)
 }
 
