@@ -546,7 +546,7 @@ async function getTenantsAndOwingAmtByRoom(roomId, periodNameId) {
       AND (BillingPeriod.ownEndDate IS NULL OR BillingPeriod.ownEndDate >= CURRENT_DATE)
       AND Tenant.deleted = false 
       AND BillingPeriod.deleted = false
-    GROUP BY Tenant.tenantId, Tenant.name, Tenant.gender, BillingPeriod.ownEndDate
+    GROUP BY Tenant.tenantId, Tenant.name, Tenant.gender, BillingPeriod.ownEndDate, BillingPeriod.agreedPrice
   `;
   const params = [roomId, periodNameId];
   return await executeQuery(query, params);
