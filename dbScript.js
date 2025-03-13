@@ -12,7 +12,7 @@ const AfricasTalking = require('africastalking')(credentials)
 const pool = new Pool({
   user: process.env.USERNAME,
   host: process.env.HOST,
-  database: 'hostelmgr',
+  database: process.env.DB_NAME,
   password: process.env.PASSWORD,
   port: 5432,
 });
