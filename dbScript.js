@@ -9,12 +9,19 @@ const AfricasTalking = require('africastalking')(credentials)
 
 // PostgreSQL connection pool
 
+// const pool = new Pool({
+//   user: process.env.USERNAME,
+//   host: process.env.HOST,
+//   database: 'hostelmgr',
+//   password: process.env.PASSWORD,
+//   port: 5432,
+// });
+
 const pool = new Pool({
-  user: process.env.USERNAME,
-  host: process.env.HOST,
-  database: process.env.DB,
-  password: process.env.PASSWORD,
-  port: 5432,
+  connectionString: process.env.DATABASE_URL, 
+  ssl: {
+    rejectUnauthorized: false, // Required for some cloud databases (like Render)
+  },
 });
 
 async function initDb() {
