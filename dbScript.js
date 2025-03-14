@@ -1005,18 +1005,21 @@ async function dashboardTotals(periodNameId) {
         AND BillingPeriod.deleted = false;
     `,
     totalOutstanding: `
-        SELECT COALESCE(SUM(BillingPeriod.agreedPrice) - (
-            SELECT 
-                SUM(Transactionn.amount) 
-            FROM 
-                Transactionn 
-            JOIN 
-                BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId 
-            WHERE 
-                transactionn.deleted = false 
-                AND BillingPeriod.deleted = false 
-                AND BillingPeriod.periodNameId = ?
-            ), 0) AS totalOutstanding
+        SELECT COALESCE(
+            SUM(BillingPeriod.agreedPrice) - (
+                SELECT 
+                    COALESCE(SUM(Transactionn.amount), 0)  -- Ensure SUM() returns 0 if no transactions exist
+                FROM 
+                    Transactionn 
+                JOIN 
+                    BillingPeriod ON Transactionn.periodId = BillingPeriod.periodId 
+                WHERE 
+                    Transactionn.deleted = false 
+                    AND BillingPeriod.deleted = false 
+                    AND BillingPeriod.periodNameId = ?
+            ), 
+            0
+        ) AS totalOutstanding
         FROM BillingPeriod
         WHERE 
             BillingPeriod.periodNameId = ? 
