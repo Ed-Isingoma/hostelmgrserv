@@ -15,6 +15,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.PASSWORD,
   port: 5432,
+  ssl:true
 });
 
 // const pool = new Pool({
@@ -756,13 +757,14 @@ function searchTenantByName(name) {
   return executeQuery(query, [`%${name}%`]);
 }
 
-function searchTenantNameAndId(name) {
+function searchTenantNameAndId(nm) {
+  const name = nm.toLowerCase();
   const query = `
     SELECT 
       t.tenantId, 
       t.name
     FROM Tenant t
-    WHERE t.name LIKE ? AND t.deleted = false
+    WHERE LOWER(t.name) LIKE ? AND t.deleted = false
   `;
   return executeQuery(query, [`%${name}%`]);
 }
@@ -1184,9 +1186,9 @@ module.exports = {
   createAccount,
   createBillingPeriod,
   createBillingPeriodName,
-  createDefaultRooms,
+  // createDefaultRooms,
   createMiscExpense,
-  createOtherDefaults,
+  // createOtherDefaults,
   createTenant,
   createTransaction,
   dashboardTotals,
@@ -1220,7 +1222,7 @@ module.exports = {
   getTransactions,
   getTransactionsByPeriodNameIdWithMetaData,
   getUnapprovedAccounts,
-  initializeTrigger,
+  // initializeTrigger,
   login,
   moveMonthlyBillingPeriods,
   searchTenantByName,
