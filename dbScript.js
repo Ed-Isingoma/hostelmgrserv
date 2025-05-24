@@ -875,7 +875,6 @@ async function getTransactionsByPeriodNameIdWithMetaData(periodNameId) {
   }
 }
 
-
 async function sendReceipt(transactionId) {
   const detailsQuery = `SELECT 
       t.ownContact,
@@ -891,7 +890,7 @@ async function sendReceipt(transactionId) {
     WHERE tr.transactionId = ?`;
 
   const sumQuery = `SELECT 
-      SUM(tr.amount) AS totalAmount
+    SUM(tr.amount) AS totalAmount
     FROM Transactionn tr
     WHERE tr.periodId = ?`;
 
@@ -899,33 +898,35 @@ async function sendReceipt(transactionId) {
     const details = await executeQuery(detailsQuery, [transactionId]);
     if (!details.length) {
       console.log("No details found for transactionId:", transactionId);
-      return false;
+      return `No details found for transactionId: ${transactionId}`;
     }
 
-    const periodId = details[0].periodId;
+    const periodId = details[0].periodid;
     const sum = await executeQuery(sumQuery, [periodId]);
 
     function formatNumber(num) {
       return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
-    let ownContact = details[0].ownContact.trim();
+    let ownContact = details[0].owncontact.trim();
 
     if (/^0\d{9}$/.test(ownContact)) {
       ownContact = "+256" + ownContact.slice(1);
+    } else {
+      return `Invalid phone number format: ${ownContact}`;
     }
 
     const validPrefixes = ["+25677", "+25678", "+25675", "+25670", "+25674", "+25676"];
     if (!validPrefixes.some(prefix => ownContact.startsWith(prefix))) {
       console.log("Invalid phone number format:", ownContact);
-      return false;
+      return `Invalid phone number format: ${ownContact}`;
     }
 
     const sms = AfricasTalking.SMS;
     const options = {
-      // to: [ownContact],
-      to: ['+256783103587'],
-      message: `Hello, We have received your payment of UGX ${formatNumber(details[0].amount)} to Kann Hostel for ${details[0].ownEndDate ? `the period ending on ${details[0].ownEndDate}` : details[0].periodName}. Your outstanding balance is UGX ${formatNumber(details[0].agreedPrice - (sum[0].totalAmount || 0))}. Transaction ID: KN${transactionId}. Thank you.`,
+      to: [ownContact],
+      // to: ['+256783103587'],
+      message: `Hello, We have received your payment of UGX ${formatNumber(details[0].amount)} to Kann Hostel for ${details[0].ownenddate ? `the period ending on ${details[0].ownenddate}` : details[0].periodname}. Your outstanding balance is UGX ${formatNumber(details[0].agreedprice - (sum[0].totalamount || 0))}. Transaction ID: KN${transactionId}. Thank you.`,
       from: 'ATEducTech'
     };
 
@@ -936,10 +937,10 @@ async function sendReceipt(transactionId) {
         throw error;
       });
 
-    return true;
+    return `Receipt sent to ${ownContact}`;
   } catch (error) {
     console.error("Error in sendReceipt:", error);
-    return false;
+    return `Error in sending receipt: ${error}`;
   }
 }
 
