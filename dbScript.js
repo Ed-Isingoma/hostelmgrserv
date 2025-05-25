@@ -18,13 +18,6 @@ const pool = new Pool({
   ssl:true
 });
 
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL, 
-//   ssl: {
-//     rejectUnauthorized: false, // Required for some cloud databases (like Render)
-//   },
-// });
-
 async function initDb() {
   try {
     const client = await pool.connect();
@@ -253,8 +246,8 @@ async function createBillingPeriodName(periodName) {
     periodName.name,
     periodName.startingDate,
     periodName.endDate,
-    periodName.costSingle || null,
-    periodName.costDouble || null
+    periodName.costSingle || 0,
+    periodName.costDouble || 0
   ];
   return await executeQuery(query, params);
 }
@@ -697,7 +690,7 @@ async function getFullTenantProfile(tenantId) {
     }
 
     const billingPeriod = fullTenantProfile.billingPeriods.find(
-      bp => bp.periodid === row.periodid
+      bp => bp.periodId === row.periodid
     )
 
     if (!billingPeriod) {
@@ -708,7 +701,7 @@ async function getFullTenantProfile(tenantId) {
         agreedPrice: row.agreedprice,
         periodType: row.periodtype,
         demandNoticeDate: row.demandnoticedate,
-        ownStartingDate: row.ownStartingDate,
+        ownStartingDate: row.ownstartingdate,
         ownEndDate: row.ownenddate,
         room: {
           roomId: row.roomid,
